@@ -1,0 +1,1175 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Jan 15 23:50:59 2022
+
+@author: 15811
+"""
+
+import os
+os.chdir('D:/HGER_main/')
+import jieba
+import csv
+import numpy as np
+import random
+from collections import Counter
+from sklearn import preprocessing
+
+
+def read_data_csv(txt_file):
+    user_data = []
+    f = open(txt_file, 'r', encoding='utf-8').readlines()
+    for line in f:
+        line_split = line.split('#')[:-1]
+        line_split = line_split + [line.split('#')[-1].split()]
+        user_data.append(line_split)
+    return user_data
+
+
+# 节目数据表示
+#    name2id,all_data,MAX_BODY_LENGTH,MAX_LABEL_LENGTH,PD_LENGTH,MAX_JJ_LENGTH,MAX_DIRECTOR_LENGTH,MAX_ACTOR_LENGTH
+"""
+def program_label(stopwords, programs, all_data, MAX_BODY_LENGTH, MAX_LABEL_LENGTH, PD_LENGTH, MAX_JJ_LENGTH,
+                  MAX_DIRECTOR_LENGTH, MAX_ACTOR_LENGTH):
+    program_dict = {}
+    word_list = []
+
+    # list(programs.keys())[:10]
+    for name in programs:
+        jjj_list = []
+        labels = [l for line in all_data for l in line[6].split() if line[5] == name and l != '空' and l != '']
+        labels = list(set(labels))
+        jjjs = [j for line in all_data for j in line[7].split() if line[5] == name and j != '空' and j != '']
+        jjjs = list(set(jjjs))
+        stopwords = [s.strip() for s in stopwords]
+        for jjj in jjjs:
+            jjj_split = ' '.join(jieba.cut(jjj)).split()
+            jjj_split = [i for i in jjj_split if i not in stopwords]
+            for j in jjj_split:
+                jjj_list.append(j)
+        jjj_list = list(set(jjj_list))
+        directors = [d for line in all_data for d in line[8].split() if line[5] == name and d != '空' and d != '']
+        directors = list(set(directors))
+        actors = [a for line in all_data for a in line[9] if line[5] == name and a != '空' and a != '']
+        actors = list(set(actors))
+        pds = [line[4] for line in all_data if line[5] == name]
+        pd_freq = Counter(pds)
+        pd_freq = sorted(dict(pd_freq).items(), key=lambda v: v[1], reverse=True)
+        pd_inf_list = [line[0] for line in pd_freq]
+
+        if len(pd_freq) >= PD_LENGTH:
+            pd_inf = pd_inf_list[:PD_LENGTH]
+        else:
+            pd_inf = pd_inf_list + ['空'] * (PD_LENGTH - len(pd_inf_list))
+
+        if name not in program_dict:
+            name_split = ' '.join(jieba.cut(name)).split()
+            # 分词后去除停用词
+            # name_split=[i for i in name_split if i not in stopwords]
+            if len(name_split) >= MAX_BODY_LENGTH:
+                name_split = name_split[:MAX_BODY_LENGTH]
+            else:
+                name_split = name_split + ['空'] * (MAX_BODY_LENGTH - len(name_split))
+
+            if len(jjj_list) >= MAX_JJ_LENGTH:
+                jjj_list = jjj_list[:MAX_JJ_LENGTH]
+            else:
+                jjj_list = jjj_list + ['空'] * (MAX_JJ_LENGTH - len(jjj_list))
+
+            if len(labels) >= MAX_LABEL_LENGTH:
+                label_list = labels[:MAX_LABEL_LENGTH]
+            else:
+                label_list = labels + ['空'] * (MAX_LABEL_LENGTH - len(labels))
+
+            if len(directors) >= MAX_DIRECTOR_LENGTH:
+                director_list = directors[:MAX_DIRECTOR_LENGTH]
+            else:
+                director_list = directors + ['空'] * (MAX_DIRECTOR_LENGTH - len(directors))
+
+            if len(actors) >= MAX_ACTOR_LENGTH:
+                actor_list = actors[:MAX_ACTOR_LENGTH]
+            else:
+                actor_list = actors + ['空'] * (MAX_ACTOR_LENGTH - len(actors))
+            program_dict[name] = [name, name_split, label_list, pd_inf, jjj_list, director_list, actor_list]
+        else:
+            pass
+        for w in name_split + label_list + pd_inf + jjj_list + director_list + actor_list:
+            word_list.append(w)
+    return program_dict, list(set(word_list))
+"""
+def program_label(programs, all_data, MAX_BODY_LENGTH, MAX_LABEL_LENGTH, PD_LENGTH):
+    program_dict = {}
+    word_list = []
+    for name in programs:
+        #labels = [l for line in all_data for l in line[6] if line[5] == name and l != '空' and l != '']
+        labels = [l for line in all_data for l in line[6].split() if line[5] == name and l != '空' and l != '']
+        labels = list(set(labels))
+        pds = [line[4] for line in all_data if line[5] == name]
+        pd_freq = Counter(pds)
+        pd_freq = sorted(dict(pd_freq).items(), key=lambda v: v[1], reverse=True)
+        pd_inf_list = [line[0] for line in pd_freq]
+
+        date = [line[1] for line in all_data if line[5] == name]
+        try:
+            date = [str(list(map(int, date))[0])]
+        except:
+            pass
+
+        if len(pd_freq) >= PD_LENGTH:
+            pd_inf = pd_inf_list[:PD_LENGTH]
+        else:
+            pd_inf = pd_inf_list + ['空'] * (PD_LENGTH - len(pd_inf_list))
+
+        if name not in program_dict:
+            name_split = ' '.join(jieba.cut(name)).split()
+            if len(name_split) >= MAX_BODY_LENGTH:
+                name_split = name_split[:MAX_BODY_LENGTH]
+            else:
+                name_split = name_split + ['空'] * (MAX_BODY_LENGTH - len(name_split))
+
+            if len(labels) >= MAX_LABEL_LENGTH:
+                label_list = labels[:MAX_LABEL_LENGTH]
+            else:
+                label_list = labels + ['空'] * (MAX_LABEL_LENGTH - len(labels))
+
+            program_dict[name] = [name, name_split, label_list, pd_inf, date]
+        else:
+            pass
+        for w in name_split + label_list:
+            word_list.append(w)
+    return program_dict, list(set(word_list))
+
+def save_dict(save_file):
+    with open(save_file, 'w', encoding='utf-8') as f:
+        for i in program_dict:
+            wirte_str = program_dict[i]
+            f.write(str(wirte_str) + '\n')
+
+    f.close()
+
+
+def read_txt(program_file):
+    f = open(program_file, 'r', encoding='utf-8').readlines()
+    programs_dict = {}
+    word_list = []
+    for line in f:
+        new_1 = line.split('[')[1:]
+        name = eval(new_1[0].split(',')[0])
+        name_fenci = [eval(n) for n in new_1[1][:-3].split(',')]
+        label_2lei = [eval(n) for n in new_1[2][:-3].split(',')]
+        pd = [eval(n) for n in new_1[3][:-3].split(',')]
+        date = [eval(n) for n in new_1[4][:-3].split(',')]
+        programs_dict[name] = [name, name_fenci, label_2lei, pd, date]
+        for w in name_fenci + label_2lei + pd:
+            word_list.append(w)
+    return programs_dict, word_list
+
+
+def read_vector_model(word_embedding_file):
+    wordVecDict = {}
+    file = open(word_embedding_file, encoding='utf-8')
+    tmp = file.readline()
+    num = 0
+    for line in file.readlines():
+        num += 1
+        if num % 50000 == 0:
+            print("Reading the %d-th word" % num)
+
+        items = line.strip().split()
+        if len(items) > 2:
+            word = items[0]
+            try:
+                vec = list(map(float, items[1:]))
+                wordVecDict[word] = vec
+            except ValueError:
+                continue
+        else:
+            pass
+    file.close()
+    return wordVecDict
+
+
+def word_dict(wordVecDict, Vocabs, embedding_dim):
+    '''词汇表
+    将结果编码成数值形式'''
+
+    # 词汇筛选
+    print('num of vocabulary:', len(Vocabs))
+    # 获得词汇
+    embedding_matrix = [0] * len(Vocabs)
+    # 获得词汇转数值编码和数值转词汇编码
+    word2idx = {}
+    idx2word = {}
+    for i, w in enumerate(Vocabs):
+        word2idx[w] = i
+        idx2word[i] = w
+
+    for w in word2idx:
+        i = word2idx[w]
+        if w in wordVecDict:
+            embedding_matrix[i] = np.array(wordVecDict[w], dtype='float32')
+        else:
+            embedding_matrix[i] = np.zeros(embedding_dim, dtype='float32')
+    embedding_matrix = np.array(embedding_matrix, dtype='float32')
+    print(embedding_matrix.shape)
+    return word2idx, embedding_matrix
+
+
+# 获得训练测试数据集--确定每一个用户分配多少个已观看的节目
+def user_watched_data_process(mouth_data, MAX_SENTS):
+    user_program_data_all = {}
+    user_program_data = {}
+    # 每一个用户的训练收视节目数据
+    min_freq_train = []
+    for i in range(110):
+        user_one_data = [line for line in mouth_data if line[0] == str(i)]
+        user_program_freq = {}
+        for line in user_one_data:
+            if line[5] in user_program_freq:
+                user_program_freq[line[5]] = user_program_freq[line[5]] + 1
+            else:
+                user_program_freq[line[5]] = 1
+        user_program_data_all[i] = sorted(dict(user_program_freq).items(), key=lambda v: v[1],
+                                          reverse=True)  # 按照用户对每个节目的观看频次降序排列
+        min_freq_train.append(len(user_program_data_all[i]))
+        # print(len(user_program_data_all[i]))
+        # 选择用于训练用户表示的节目数
+        user_program_data[i] = [m[0] for m in user_program_data_all[i][:MAX_SENTS]]
+        user_program_data_all[i] = [m[0] for m in user_program_data_all[i][:]]
+
+    return user_program_data, user_program_data_all
+
+
+def program_watched_data_process(mouth_data, data_program_list, MAX_SENTS):
+    program_user_data_all = {}
+    program_user_data = {}
+    # 每个节目被哪些用户所观看
+    min_freq_program_watched = []
+    for i in data_program_list:
+        program_one_data = [line for line in all_data if line[5] == i]
+        program_user_freq = {}
+        for line in program_one_data:
+            if line[0] in program_user_freq:
+                program_user_freq[line[0]] = program_user_freq[line[0]] + 1
+            else:
+                program_user_freq[line[0]] = 1
+        program_user_data_all[i] = sorted(dict(program_user_freq).items(), key=lambda v: v[1], reverse=True)
+        min_freq_program_watched.append(len(program_user_data_all[i]))
+        program_user_data[i] = [m[0] for m in program_user_data_all[i][:MAX_SENTS]]
+        program_user_data_all[i] = [m[0] for m in program_user_data_all[i][:]]
+    return program_user_data, program_user_data_all
+
+
+# 训练数据中，每个用户观看的30个节目中，其他观看过这30个节目的邻居用户
+def user_neighbor_data_process(user_program_data, program_user_data, MAX_NEIGHBOR_LENGTH):
+    user_neighbor_data_all = {}
+    user_neighbor_data = {}
+    min_freq_neighbor = []
+    for i in range(110):
+        program = user_program_data[i]
+        user_neighbor = []
+        user_neighbor_freq = {}
+        for p in program:
+            user_neighbor_one = program_user_data[p][:]
+            user_neighbor = user_neighbor + user_neighbor_one
+        user_neighbor_freq = dict(Counter(user_neighbor))
+        user_neighbor_data_all[i] = sorted(dict(user_neighbor_freq).items(), key=lambda v: v[1], reverse=True)
+        min_freq_neighbor.append(len(user_neighbor_data_all[i]))
+        user_neighbor_data[i] = [m[0] for m in user_neighbor_data_all[i][1:MAX_NEIGHBOR_LENGTH + 1]]
+        user_neighbor_data_all[i] = [m[0] for m in user_neighbor_data_all[i][1:]]
+    return user_neighbor_data, user_neighbor_data_all
+
+
+# 训练数据中，每个节目被10个用户观看，这10个用户观看过的邻居节目
+def program_neighbor_data_process(user_program_data, program_user_data, data_program_list, MAX_NEIGHBOR_LENGTH):
+    program_neighbor_data_all = {}
+    program_neighbor_data = {}
+    min_freq_neighbor_2 = []
+    for i in data_program_list:
+        user = program_user_data[i]
+        program_neighbor = []
+        program_neighbor_freq = {}
+        for u in user:
+            program_neighbor_one = user_program_data[int(u)][:]
+            program_neighbor = program_neighbor + program_neighbor_one
+        program_neighbor_freq = dict(Counter(program_neighbor))
+        program_neighbor_data_all[i] = sorted(dict(program_neighbor_freq).items(), key=lambda v: v[1], reverse=True)
+        min_freq_neighbor_2.append(len(program_neighbor_data_all[i]))
+        program_neighbor_data[i] = [m[0] for m in program_neighbor_data_all[i][1:MAX_NEIGHBOR_LENGTH + 1]]
+        program_neighbor_data_all[i] = [m[0] for m in program_neighbor_data_all[i][1:]]
+    return program_neighbor_data, program_neighbor_data_all
+
+
+# 测试数据中，每个节目被10个用户观看，这10个用户观看过的邻居节目
+def program_neighbor_test_data_process(user_program_data, program_user_data, data_program_list, MAX_NEIGHBOR_LENGTH):
+    program_neighbor_data_all = {}
+    program_neighbor_data = {}
+    min_freq_neighbor_2 = []
+    for i in data_program_list:
+        user = program_user_data[i]
+        program_neighbor = []
+        program_neighbor_freq = {}
+        for u in user:
+            program_neighbor_one = user_program_data[int(u)][:]
+            program_neighbor = program_neighbor + program_neighbor_one
+        program_neighbor_freq = dict(Counter(program_neighbor))
+        program_neighbor_data_all[i] = sorted(dict(program_neighbor_freq).items(), key=lambda v: v[1], reverse=True)
+        min_freq_neighbor_2.append(len(program_neighbor_data_all[i]))
+        program_neighbor_data[i] = [m[0] for m in program_neighbor_data_all[i][:MAX_NEIGHBOR_LENGTH]]
+        program_neighbor_data_all[i] = [m[0] for m in program_neighbor_data_all[i][:]]
+    return program_neighbor_data, program_neighbor_data_all
+
+
+# 构造随机训练数据
+# 每一个用户构造30条，每一条包括1个看过，5个没看过
+# 改！增加简介、导演、演员
+def user_train_data_process_seq(train_program_list, user_program_data, user_program_data_all, user_neighbor_data,
+                                program_neighbor_data, program_dict, userid2id, word2idx, pd2id, name2id, label2id,
+                                date2id, n):
+    Titles_bufenci = []
+    Titles_fenci = []
+    Labels_2lei = []
+    Pds = []
+    Dates = []
+    User_Titles_bufenci = []
+    User_Titles_fenci = []
+    User_Labels_2lei = []
+    User_program_pd = []
+    User_program_date = []
+    # 用户id、邻居节目id、邻居节目、邻居用户四个
+
+    Neighbor_programs_id = []
+    User_Neighbor_programs_id = []
+
+    y_label = []
+    label2id = word2idx
+    for i in range(110):
+        # print(i)
+
+        chosen_data = user_program_data[i][:choose_time]
+        un_chosen_data_list = [p for p in train_program_list if p not in user_program_data_all[i]]
+        prodate_dic = {}
+        for j in chosen_data:
+            date = program_dict[j][4][0]
+            prodate_dic[j] = int(date)
+        seq_prodate_dic = sorted(prodate_dic.items(), key=lambda x: x[1])  # 按值（日期）排序 list：元组('直播北京', 20150607)
+
+        seq_list = []
+        # 每一个用户选择choose_time个观看节目
+        for j in seq_prodate_dic:
+            new_jlist = []
+            new_jlist.append([j[0], 1])
+            # 每一个节目再选择4个没有观看的节目作为negative
+            un_chosen_data = random.sample(un_chosen_data_list, n)
+            for m in un_chosen_data:
+                new_jlist.append([m, 0])
+
+            random.shuffle(new_jlist)
+            houxuan_watched = [k[0] for k in new_jlist]
+            houxuan_label = [k[1] for k in new_jlist]
+
+            # 训练标签
+            y_label.append(houxuan_label)
+            # 候选节目标题、标签词汇表示
+            line_program_name_fencidata = []
+            line_program_name_bufencidata = []
+            line_program_label_2leidata = []
+            line_program_pd_data = []
+            line_program_date_data = []
+            # 候选节目的邻居节目的名称、标签表示
+
+            Neighbor_program_one_id = []
+
+            for p in houxuan_watched:
+                # 节目名称
+                tt = program_dict[p][0]
+                line_program_name_bufencidata.append(name2id[tt])
+
+                tt = program_dict[p][1]
+                ttt = [word2idx[m] for m in tt]
+                line_program_name_fencidata.append(ttt)
+
+                # 节目标签
+                ll = program_dict[p][2]
+                lll = [label2id[m] for m in ll]
+                line_program_label_2leidata.append(lll)
+
+                pdpd = program_dict[p][3]
+                pdpdpd = [pd2id[m] for m in pdpd]
+                line_program_pd_data.append(pdpdpd)
+
+                dada = program_dict[p][4]
+                dadada = [date2id[m] for m in dada]
+                line_program_date_data.append(dadada)
+
+                # 邻居节目相关信息
+                neighbor_program_list = program_neighbor_data[p]
+
+                neighbor_program_name_id = []
+
+                for pp in neighbor_program_list:
+                    ntid = program_dict[pp][0]
+                    neighbor_program_name_id.append(name2id[ntid])
+
+                Neighbor_program_one_id.append(neighbor_program_name_id)
+
+            # 用户观看节目标题、标签表示
+            used_watched_list = user_program_data[i]
+            line_watched_program_name_fencidata = []
+            line_watched_program_name_bufencidata = []
+            line_watched_program_label_2leidata = []
+            line_watched_program_pd_data = []
+            line_watched_program_date_data = []
+            line_watched_neighbor_program_id = []
+            for p in used_watched_list:
+                tt = program_dict[p][0]
+                line_watched_program_name_bufencidata.append(name2id[tt])
+
+                tt = program_dict[p][1]
+                ttt = [word2idx[m] for m in tt]
+                line_watched_program_name_fencidata.append(ttt)
+
+                # 节目标签
+                ll = program_dict[p][2]
+                lll = [label2id[m] for m in ll]
+                line_watched_program_label_2leidata.append(lll)
+
+                pdpd = program_dict[p][3]
+                pdpdpd = [pd2id[m] for m in pdpd]
+                line_watched_program_pd_data.append(pdpdpd)
+
+                dada = program_dict[p][4]
+                dadada = [date2id[m] for m in dada]
+                line_watched_program_date_data.append(dadada)
+
+                neighbor_program_list = program_neighbor_data[p]
+                user_neighbor_program_name_id = []
+                for pp in neighbor_program_list:
+                    ntid = program_dict[pp][0]
+                    user_neighbor_program_name_id.append(name2id[ntid])
+
+                line_watched_neighbor_program_id.append(user_neighbor_program_name_id)
+
+            Titles_bufenci.append(line_program_name_bufencidata)
+            Titles_fenci.append(line_program_name_fencidata)
+            Labels_2lei.append(line_program_label_2leidata)
+            Pds.append(line_program_pd_data)
+            Dates.append(line_program_date_data)
+            User_program_pd.append(line_watched_program_pd_data)
+            User_Titles_bufenci.append(line_watched_program_name_bufencidata)
+            User_Titles_fenci.append(line_watched_program_name_fencidata)
+            User_Labels_2lei.append(line_watched_program_label_2leidata)
+            User_program_date.append(line_watched_program_date_data)
+            Neighbor_programs_id.append(Neighbor_program_one_id)
+            User_Neighbor_programs_id.append(line_watched_neighbor_program_id)
+
+    # train_data_sample=np.array(train_data_sample)
+    y_label = np.array(y_label, dtype='int32')
+    Titles_bufenci = np.array(Titles_bufenci, dtype='int32')
+    Titles_fenci = np.array(Titles_fenci, dtype='int32')
+    Labels_2lei = np.array(Labels_2lei, dtype='int32')
+    Pds = np.array(Pds, dtype='int32')
+    Dates = np.array(Dates, dtype='int32')
+    User_program_pd = np.array(User_program_pd, dtype='int32')
+    User_Titles_bufenci = np.array(User_Titles_bufenci, dtype='int32')
+    User_Titles_fenci = np.array(User_Titles_fenci, dtype='int32')
+    User_Labels_2lei = np.array(User_Labels_2lei, dtype='int32')
+    User_program_date = np.array(User_program_date, dtype='int32')
+    Neighbor_programs_id = np.array(Neighbor_programs_id, dtype='int32')
+    User_Neighbor_programs_id = np.array(User_Neighbor_programs_id, dtype='int32')
+
+    return y_label, Titles_bufenci, Titles_fenci, Labels_2lei, Pds, Dates, User_program_pd, User_Titles_bufenci, User_Titles_fenci, User_Labels_2lei, User_program_date, Neighbor_programs_id, User_Neighbor_programs_id
+
+
+# 测试数据,改！！！！
+def user_test_data_process(user_program_data, test_program_list, user_test_program_data_all, user_neighbor_test_data,
+                           program_neighbor_data, program_neighbor_test_data, program_dict, userid2id, word2idx, pd2id,
+                           name2id, label2id, date2id):
+    user_test_Titles_bufenci = []
+    user_test_Titles_fenci = []
+    user_test_Labels_2lei = []
+    user_test_Pds = []
+    user_test_dates = []
+    user_test_User_Titles_bufenci = []
+    user_test_User_Titles_fenci = []
+    user_test_User_Labels_2lei = []
+    user_test_User_Pds = []
+    user_test_User_dates = []
+
+    # 用户id、邻居节目id、邻居节目、邻居用户四个
+    Neighbor_test_programs_id = []
+    User_Neighbor_test_programs_id = []
+
+    user_test_y_label = []
+    all_test_index = []
+    label2id = word2idx
+    for i in range(110):
+        # 用户id
+
+        sess_index = []
+        sess_index.append(len(user_test_y_label))
+        wathced_data = user_test_program_data_all[i]
+        # 用户观看节目标题、标签表示
+        used_watched_list = user_program_data[i]
+        line_watched_program_name_fencidata = []
+        line_watched_program_name_bufencidata = []
+        line_watched_program_label_2leidata = []
+        line_watched_program_pd_data = []
+        line_watched_program_date_data = []
+        line_watched_neighbor_program_id = []
+
+        # 用户对观看过的30个节目表示
+        for p in used_watched_list:
+            tt = program_dict[p][0]
+            line_watched_program_name_bufencidata.append(name2id[tt])
+            tt = program_dict[p][1]
+            ttt = [word2idx[m] for m in tt]
+            line_watched_program_name_fencidata.append(ttt)
+            # 节目标签
+            ll = program_dict[p][2]
+            lll = [label2id[m] for m in ll]
+            line_watched_program_label_2leidata.append(lll)
+            pdpd = program_dict[p][3]
+            pdpdpd = [pd2id[m] for m in pdpd]
+            line_watched_program_pd_data.append(pdpdpd)
+            dada = program_dict[p][4]
+            dadada = [date2id[m] for m in dada]
+            line_watched_program_date_data.append(dadada)
+
+            neighbor_program_list = program_neighbor_data[p]
+            user_neighbor_program_name_id = []
+            for pp in neighbor_program_list:
+                ntid = program_dict[pp][0]
+                user_neighbor_program_name_id.append(name2id[ntid])
+            line_watched_neighbor_program_id.append(user_neighbor_program_name_id)
+
+        # 测试集中的节目表示、节目邻居、节目邻居表示
+        for pp in test_program_list:
+            # 训练标签
+            if pp in wathced_data:
+                user_test_y_label.append(1)
+            else:
+                user_test_y_label.append(0)
+
+            # 候选节目标题、标签词汇表示
+            tt = program_dict[pp][0]
+            user_test_Titles_bufenci.append(name2id[tt])
+
+            ttt = program_dict[pp][1]
+            tttt = [word2idx[m] for m in ttt]
+            user_test_Titles_fenci.append(tttt)
+
+            # 节目标签
+            ll = program_dict[pp][2]
+            lll = [label2id[m] for m in ll]
+            user_test_Labels_2lei.append(lll)
+
+            pdpd = program_dict[pp][3]
+            pdpdpd = [pd2id[m] for m in pdpd]
+            user_test_Pds.append(pdpdpd)
+
+            dada = program_dict[pp][4]
+            dadada = [date2id[m] for m in dada]
+            user_test_dates.append(dadada)
+
+            # 邻居节目相关信息
+            neighbor_program_test_list = program_neighbor_test_data[pp]
+            neighbor_program_test_name_id = []
+            for ppp in neighbor_program_test_list:
+                ntid = program_dict[ppp][0]
+                neighbor_program_test_name_id.append(name2id[ntid])
+
+            user_test_User_Titles_bufenci.append(line_watched_program_name_bufencidata)
+            user_test_User_Titles_fenci.append(line_watched_program_name_fencidata)
+            user_test_User_Labels_2lei.append(line_watched_program_label_2leidata)
+            user_test_User_Pds.append(line_watched_program_pd_data)
+            user_test_User_dates.append(line_watched_program_date_data)
+            User_Neighbor_test_programs_id.append(line_watched_neighbor_program_id)
+
+            Neighbor_test_programs_id.append(neighbor_program_test_name_id)
+        sess_index.append(len(user_test_y_label))
+        all_test_index.append(sess_index)
+
+    user_test_y_label = np.array(user_test_y_label, dtype='int32')
+    user_test_Titles_bufenci = np.array(user_test_Titles_bufenci, dtype='int32')
+    user_test_Titles_fenci = np.array(user_test_Titles_fenci, dtype='int32')
+    user_test_Labels_2lei = np.array(user_test_Labels_2lei, dtype='int32')
+    user_test_Pds = np.array(user_test_Pds, dtype='int32')
+    user_test_dates = np.array(user_test_dates, dtype='int32')
+    user_test_User_Pds = np.array(user_test_User_Pds, dtype='int32')
+    user_test_User_Titles_bufenci = np.array(user_test_User_Titles_bufenci, dtype='int32')
+    user_test_User_Titles_fenci = np.array(user_test_User_Titles_fenci, dtype='int32')
+    user_test_User_Labels_2lei = np.array(user_test_User_Labels_2lei, dtype='int32')
+    user_test_User_dates = np.array(user_test_User_dates, dtype='int32')
+    Neighbor_test_programs_id = np.array(Neighbor_test_programs_id, dtype='int32')
+    User_Neighbor_test_programs_id = np.array(User_Neighbor_test_programs_id, dtype='int32')
+
+    return all_test_index, user_test_y_label, user_test_Titles_bufenci, user_test_Titles_fenci, user_test_Labels_2lei, user_test_Pds, user_test_dates, user_test_User_Pds, user_test_User_Titles_bufenci, user_test_User_Titles_fenci, user_test_User_Labels_2lei, user_test_User_dates, Neighbor_test_programs_id, User_Neighbor_test_programs_id
+
+
+def generate_batch_data_train(Titles_bufenci, Titles_fenci, Labels_2lei, Pds, Dates, User_Titles, User_Labels,
+                              User_program_pd, User_program_date, Neighbor_programs_id, User_Neighbor_programs_id,
+                              y_label, batch_size):
+    inputid = np.arange(len(y_label))
+    np.random.shuffle(inputid)
+    y = y_label
+    batches = [inputid[range(batch_size * i, min(len(y), batch_size * (i + 1)))] for i in
+               range(len(y) // batch_size + 1)]
+
+    while (True):
+        for i in batches:
+            # candidates_program_id=Titles_bufenci[i]
+            # candidates_program_id_split=[candidates_program_id[:,k] for k in range(candidates_program_id.shape[1])]
+            candidates_title = Titles_fenci[i]
+            candidates_title_split = [candidates_title[:, k, :] for k in range(candidates_title.shape[1])]
+            candidates_label = Labels_2lei[i]
+            candidates_label_split = [candidates_label[:, k, :] for k in range(candidates_label.shape[1])]
+            candidates_Pds = Pds[i]
+            candidates_pds_split = [candidates_Pds[:, k, :] for k in range(candidates_Pds.shape[1])]
+            candidates_Dates = Dates[i]
+            candidates_Dates_split = [candidates_Dates[:, k, :] for k in range(candidates_Dates.shape[1])]
+
+            candidates_neighbor_program_id = Neighbor_programs_id[i]
+            candidates_neighbor_program_id_split = [candidates_neighbor_program_id[:, k, :] for k in
+                                                    range(candidates_neighbor_program_id.shape[1])]
+
+            watched_User_Titles = User_Titles[i]
+            watched_User_Titles_split = [watched_User_Titles[:, k, :] for k in range(watched_User_Titles.shape[1])]
+            watched_User_Labels = User_Labels[i]
+            watched_User_Labels_split = [watched_User_Labels[:, k, :] for k in range(watched_User_Labels.shape[1])]
+            watched_User_pds = User_program_pd[i]
+            watched_User_pds_split = [watched_User_pds[:, k, :] for k in range(watched_User_pds.shape[1])]
+            watched_User_dates = User_program_date[i]
+            watched_User_dates_split = [watched_User_dates[:, k, :] for k in range(watched_User_dates.shape[1])]
+            watched_neighbor_program_id = User_Neighbor_programs_id[i]
+            watched_neighbor_program_id_split = [watched_neighbor_program_id[:, k, :] for k in
+                                                 range(watched_neighbor_program_id.shape[1])]
+
+            label = y_label[i]
+            yield (
+            candidates_title_split + watched_User_Titles_split + candidates_label_split + watched_User_Labels_split + candidates_pds_split + watched_User_pds_split + candidates_Dates_split + watched_User_dates_split + candidates_neighbor_program_id_split + watched_neighbor_program_id_split,
+            label)
+
+
+def generate_batch_data_test(test_Titles, test_Labels, user_test_Pds, user_test_dates, test_User_Titles,
+                             test_User_Labels, user_test_User_Pds, user_test_User_dates, Neighbor_test_programs_id,
+                             User_Neighbor_test_programs_id, test_y_label, batch_size):
+    inputid = np.arange(len(test_y_label))
+    y = test_y_label
+    batches = [inputid[range(batch_size * i, min(len(y), batch_size * (i + 1)))] for i in
+               range(len(y) // batch_size + 1)]
+
+    while (True):
+        for i in batches:
+            candidates_title = test_Titles[i]
+            candidates_label = test_Labels[i]
+            candidates_pd = user_test_Pds[i]
+            candidates_date = user_test_dates[i]
+            candidate_neighbor_program_id = Neighbor_test_programs_id[i]
+
+            watched_User_Titles = test_User_Titles[i]
+            watched_User_Titles_split = [watched_User_Titles[:, k, :] for k in range(watched_User_Titles.shape[1])]
+            watched_User_Labels = test_User_Labels[i]
+            watched_User_Labels_split = [watched_User_Labels[:, k, :] for k in range(watched_User_Labels.shape[1])]
+            watched_User_pds = user_test_User_Pds[i]
+            watched_User_pds_split = [watched_User_pds[:, k, :] for k in range(watched_User_pds.shape[1])]
+            watched_User_dates = user_test_User_dates[i]
+            watched_User_dates_split = [watched_User_dates[:, k, :] for k in range(watched_User_dates.shape[1])]
+            watched_User_neighbor_program_id = User_Neighbor_test_programs_id[i]
+            watched_User_neighbor_program_id_split = [watched_User_neighbor_program_id[:, k, :] for k in
+                                                      range(watched_User_neighbor_program_id.shape[1])]
+
+            label = test_y_label[i]
+
+            yield ([candidates_title] + watched_User_Titles_split + [candidates_label] + watched_User_Labels_split + [
+                candidates_pd] + watched_User_pds_split + [candidates_date] + watched_User_dates_split + [
+                       candidate_neighbor_program_id] + watched_User_neighbor_program_id_split, label)
+
+
+def dcg_score(y_true, y_score, k=10):
+    order = np.argsort(y_score)[::-1]
+    y_true = np.take(y_true, order[:k])
+    gains = 2 ** y_true - 1
+    discounts = np.log2(np.arange(len(y_true)) + 2)
+    return np.sum(gains / discounts)
+
+
+def ndcg_score(y_true, y_score, k=10):
+    best = dcg_score(y_true, y_true, k)
+    actual = dcg_score(y_true, y_score, k)
+    return actual / best
+
+
+def mrr_score(y_true, y_score, k=10):
+    # argsort()是将X中的元素从小到大排序后，提取对应的索引index，然后输出到y
+    order = np.argsort(y_score)[::-1]
+    y_true = np.take(y_true, order[:k])
+    rr_score = y_true / (np.arange(len(y_true)) + 1)
+    return np.sum(rr_score) / np.sum(y_true)
+
+
+def hr_score(y_true, y_score, k=10):
+    # argsort()是将X中的元素从小到大排序后，提取对应的索引index，然后输出到y
+    k = sum(y_true)
+    zorder = np.argsort(y_score)[::-1]
+    zy_true = np.take(y_true, zorder[:k])
+    hr_score = sum(zy_true) / sum(y_true)
+    return hr_score
+
+
+#用户数据读入
+MAX_BODY_LENGTH=6
+MAX_LABEL_LENGTH=4
+PD_LENGTH=1
+MAX_SENTS=30
+PD_MAX_SENTS=30
+MAX_JJ_LENGTH=50 #简介
+MAX_DIRECTOR_LENGTH=3 #导演
+MAX_ACTOR_LENGTH=4 #演员
+choose_time=30 
+batch_size=30
+n=5
+npratio=5
+MAX_NEIGHBOR_LENGTH=15 #邻居用户/节目个数
+'''
+print('choose_time',choose_time)
+print('n',n)
+print('MAX_LABEL_LENGTH',MAX_LABEL_LENGTH)
+print('MAX_JJ_LENGTH',MAX_JJ_LENGTH)
+print('MAX_DIRECTOR_LENGTH',MAX_DIRECTOR_LENGTH)
+print('MAX_ACTOR_LENGTH',MAX_ACTOR_LENGTH)
+'''
+
+#读入训练和测试数据
+
+# train_txt_file='data/overall_user_data/train_mouth5_data_300s_kn.txt'
+# test_txt_file='data/overall_user_data/test_mouth6_data_60s_kn.txt'
+#
+# stopwords1_file='data/stopwords_CN.txt'
+train_txt_file='data/overall_user_data/train_mouth5_data_300s_kn.txt'
+test_txt_file='data/overall_user_data/test_mouth6_data_60s_kn.txt'
+
+# stopwords1_file='data/stopwords_CN.txt'
+stopwords1_file='data/stopwords_CN.txt'
+
+stopwords1=open(stopwords1_file,'r',encoding='utf-8').readlines()
+
+train_mouth_data=read_data_csv(train_txt_file)
+test_mouth_data=read_data_csv(test_txt_file)
+all_data=train_mouth_data+test_mouth_data
+'''
+print('train data:',len(train_mouth_data)) 
+
+print('test data:',len(test_mouth_data)) 
+'''
+#用户id信息
+user_id_list=[]
+for line in all_data:
+    user_id_list.append(line[0])
+    
+Counter(user_id_list)#每一个元素及出现的次数
+user_id_list=list(set(user_id_list))
+print('user_id num:',len(user_id_list))
+userid2id={}
+for index,i in enumerate(user_id_list):
+    userid2id[i]=index
+userid2id['空']=len(userid2id.keys())
+
+#节目名称
+program_list=[]
+for line in all_data:
+    program_list.append(line[5])
+
+Counter(program_list)
+program_list=list(set(program_list))
+print('program num:',len(program_list))
+name2id={}
+for index,i in enumerate(program_list):
+    name2id[i]=index
+name2id['空']=len(name2id.keys())
+
+
+
+#频道的规律
+#频道信息
+pd_list=[]
+for line in all_data:   
+    pd_list.append(line[4])
+
+Counter(pd_list)#每一个元素及出现的次数
+pd_list=list(set(pd_list))
+print('pd num:',len(pd_list))
+pd2id={}
+for index,i in enumerate(pd_list):
+    pd2id[i]=index
+pd2id['空']=len(pd2id.keys())
+
+#日期
+date_list=[]
+for line in all_data:
+    #date=line[1][:4]+line[1][5:7]+line[1][8:]
+    #date_list.append(date)
+    #改日期格式
+    if len(line[1])==10:#2015/11/18
+        date=line[1][:4]+line[1][5:7]+line[1][8:]
+    elif len(line[1])==8:#2015/6/6
+        date=line[1][:4]+'0'+line[1][5]+'0'+line[1][7]
+    elif len(line[1])==9:#2015/6/16
+        date=line[1][:4]+'0'+line[1][5]+line[1][7:9]
+    else:
+        print('?')
+    line[1]=date #替换
+    date_list.append(date)
+Counter(date_list)
+date_list=list(set(date_list))
+print('date num:',len(date_list))
+date2id={}
+for index,i in enumerate(date_list):
+    date2id[i]=index
+date2id['空']=len(date2id.keys())
+
+#日期排序
+date_seq=[]
+for line in all_data:
+    date_seq.append(int(line[1]))
+date_seq=list(set(date_seq))
+date_seq.sort(key=None,reverse=False)#排序
+date_seq_list=[str(i) for i in date_seq]#转str
+date2id={}
+for index,i in enumerate(date_seq_list):
+    date2id[i]=index
+date2id['空']=len(date2id.keys())
+
+
+    
+#标签
+label_list=[]
+for line in all_data:
+    for i in line[6].split():
+        label_list.append(i)
+Counter(label_list)
+label_list=list(set(label_list))
+print('label num:',len(label_list))
+label2id={}
+for index,i in enumerate(label_list):
+    label2id[i]=index
+label2id['空']=len(label2id.keys())
+
+
+
+#训练数据中的节目名称列表
+train_program_list=[]
+for line in train_mouth_data:   
+    train_program_list.append(line[5])
+Counter(train_program_list)
+train_program_list=list(set(train_program_list))
+print('train_program_list num:',len(train_program_list))
+
+#测试数据中的节目名称列表
+test_program_list=[]
+for line in test_mouth_data:   
+    test_program_list.append(line[5])
+Counter(test_program_list)
+test_program_list=list(set(test_program_list))
+print('test_program_list num:',len(test_program_list))
+
+
+#节目简介
+jjs_list=[]
+jj_list=[]
+jj_split=[]
+for line in all_data:   
+    jjs_list.append(line[-3])
+Counter(jjs_list)
+jjs_list=list(set(jjs_list))
+stopwords1=[s.strip() for s in stopwords1]
+for jj in jjs_list:
+    jj_split=' '.join(jieba.cut(jj)).split()
+    jj_split=[i for i in jj_split if i not in stopwords1]
+    for j in jj_split:
+        jj_list.append(j)
+Counter(jj_list)
+jj_list=list(set(jj_list))
+print('jj_fenci num:',len(jj_list))
+jj2id={}
+for index,i in enumerate(jj_list):
+    jj2id[i]=index
+jj2id['空']=len(jj2id.keys())
+
+#导演
+director_list=[]
+for line in all_data:
+    for i in line[-2].split():
+        director_list.append(i)
+Counter(director_list)
+director_list=list(set(director_list))
+print('director num:',len(director_list))
+director2id={}
+for index,i in enumerate(director_list):
+    director2id[i]=index
+director2id['空']=len(director2id.keys())
+
+#演员
+actor_list=[]
+for line in all_data:
+    for i in line[-1]:
+        actor_list.append(i)
+Counter(actor_list)
+actor_list=list(set(actor_list))
+print('actor num:',len(actor_list))
+actor2id={}
+for index,i in enumerate(actor_list):
+    actor2id[i]=index
+actor2id['空']=len(actor2id.keys())
+  
+#处理数据，使得每一个节目对应一个节目名称、节目名称分词、节目标签、节目频道
+# program_dict,word_list=program_label(name2id,all_data,MAX_BODY_LENGTH,MAX_LABEL_LENGTH,PD_LENGTH)
+#program_dict,word_list=program_label(stopwords1,name2id,all_data,MAX_BODY_LENGTH,MAX_LABEL_LENGTH,PD_LENGTH,MAX_JJ_LENGTH,MAX_DIRECTOR_LENGTH,MAX_ACTOR_LENGTH)
+# save_dict('data/program_kn_dict_5_300_4_60_5label.txt')
+program_file='data/program_kn_dict_5_300_4_60_date.txt'
+
+#program_file='data/program_kn_dict_5_300_4_60_date.txt'
+program_dict,word_list=read_txt(program_file)
+#print('program num:',len(list(program_dict.keys())))
+
+
+#所有词汇
+
+Vocabs=list(set(word_list))
+print('Vocabs num:',len(Vocabs))
+word2idx={}
+idx2word={}
+
+for i, w in enumerate(Vocabs):
+    word2idx[w]=i
+    idx2word[i]=w 
+
+#预处理词嵌入读入
+embedding_dim=300
+#word_embedding_file='D:/wyy/data/pre_model/Sogou_News/word2vec.sohuall.300d.skip.txt' 
+#word_embedding_file='data/pre-train-embedding/word2vec.sohuall.300d.skip.txt' 
+#wordVecDict=read_vector_model(word_embedding_file)
+#word2idx,embedding_matrix=word_dict(wordVecDict,Vocabs, embedding_dim)
+'''
+word_embedding_file='data/word_vec_dict.txt'  #改文件
+wordVecDict=read_vector_model(word_embedding_file)
+word2idx,embedding_matrix=word_dict(wordVecDict,Vocabs, embedding_dim)
+embedding_matrix=preprocessing.scale(embedding_matrix)
+
+
+'''
+#获得训练数据集，每一个用户对应的全部节目和部分节目
+user_program_data,user_program_data_all=user_watched_data_process(train_mouth_data,MAX_SENTS) 
+#获得训练数据集，每一个节目被哪些用户观看，部分用户和全部用户
+program_user_data,program_user_data_all=program_watched_data_process(user_program_data,train_program_list,MAX_SENTS)
+
+#获得测试数据集，每一个用户对应的全部节目和部分节目
+user_test_program_data,user_test_program_data_all=user_watched_data_process(test_mouth_data,10)   
+#获得测试数据集，每一个节目被哪些用户观看，部分用户和全部用户
+program_user_test_data,program_user_test_data_all=program_watched_data_process(test_mouth_data,test_program_list,10)
+
+
+#获得训练数据集,每一个用户的邻居用户
+user_neighbor_data,user_neighbor_data_all=user_neighbor_data_process(user_program_data,program_user_data,MAX_NEIGHBOR_LENGTH)
+
+#获得训练数据集,每一个节目的邻居节目
+program_neighbor_data,program_neighbor_data_all=program_neighbor_data_process(user_program_data,program_user_data,train_program_list,MAX_NEIGHBOR_LENGTH)
+
+#获得测试数据集，每一个用户的邻居用户
+user_neighbor_test_data,user_neighbor_test_data_all=user_neighbor_data_process(user_test_program_data,program_user_test_data,10)
+
+#获得测试数据集，每一个节目的邻居节目
+program_neighbor_test_data,program_neighbor_test_data_all=program_neighbor_test_data_process(user_test_program_data,program_user_test_data,test_program_list,10)
+
+#获得随机训练数据
+#每一个用户构造30条，每一条包括1个看过，4个没看过
+y_label,Titles_bufenci,Titles_fenci,Labels_2lei,Pds,Dates,User_program_pd,User_Titles_bufenci,User_Titles_fenci,User_Labels_2lei,User_program_date,Neighbor_programs_id,User_Neighbor_programs_id=user_train_data_process_seq(train_program_list,user_program_data,user_program_data_all,user_neighbor_data,program_neighbor_data,program_dict,userid2id,word2idx,pd2id,name2id,label2id,date2id,n)
+
+#获得测试数据
+all_test_index,user_test_y_label,user_test_Titles_bufenci,user_test_Titles_fenci,user_test_Labels_2lei,user_test_Pds,user_test_dates,user_test_User_Pds,user_test_User_Titles_bufenci,user_test_User_Titles_fenci,user_test_User_Labels_2lei,user_test_User_dates,Neighbor_test_programs_id,User_Neighbor_test_programs_id=user_test_data_process(user_program_data,test_program_list,user_test_program_data_all,user_neighbor_test_data,program_neighbor_data,program_neighbor_test_data,program_dict,userid2id,word2idx,pd2id,name2id,label2id,date2id)
+
+
+#训练过程
+import keras
+from keras.layers import *
+from keras.models import Model
+from keras import backend as K
+from keras.optimizers import *
+
+
+#节目名称表示
+title_input = Input(shape=(MAX_BODY_LENGTH,), dtype='int32') #( ,6)
+embedding_layer = Embedding(len(Vocabs), embedding_dim, trainable=True)
+
+#embedding_layer = Embedding(len(Vocabs), embedding_dim, weights=[embedding_matrix],trainable=True)
+
+embedded_sequences_title = embedding_layer(title_input)
+embedded_sequences_title=Dropout(0.2)(embedded_sequences_title) #( ,6,300)
+
+
+title_cnn = Convolution1D(nb_filter=100, filter_length=3,  padding='same', activation='relu', strides=1)(embedded_sequences_title)
+title_cnn=Dropout(0.2)(title_cnn) #( ,6,100)
+
+#！看后面是否需要改成多头自注意力机
+title_attention = Dense(100,activation='tanh')(title_cnn)
+title_attention = Flatten()(Dense(1)(title_attention))
+title_attention_weight = Activation('softmax')(title_attention)
+title_rep=keras.layers.Dot((1, 1))([title_cnn, title_attention_weight]) #( ,100)
+#节目标签表示
+
+label_input=Input((MAX_LABEL_LENGTH,), dtype='int32')  #( ,4)
+embedded_sequences_label = embedding_layer(label_input)
+embedded_sequences_label =Dropout(0.2)(embedded_sequences_label)
+label_merged =Flatten()(embedded_sequences_label)   
+label_rep=Dense(100,activation='relu')(label_merged) #( ,100)
+
+#节目频道表示
+pd_input=Input((1,), dtype='int32') 
+
+pd_embedding_layer = Embedding(len(pd2id), 50,trainable=True)
+pd_rep=Dense(100,activation='relu')(Flatten()(pd_embedding_layer(pd_input)))#( ,100)
+
+#观看时间表示
+date_input=Input((1,), dtype='int32') 
+date_embedding_layer = Embedding(len(date2id), 50,trainable=True)
+date_rep=Dense(100,activation='relu')(Flatten()(date_embedding_layer(date_input)))
+
+
+#节目邻居id表示
+neighbor_program_input = Input(shape=(MAX_NEIGHBOR_LENGTH,), dtype='int32') #( ,10)
+neighbor_program_embedding_layer = Embedding(len(name2id),100,trainable=True)
+embedded_sequences_neighbor_program = neighbor_program_embedding_layer(neighbor_program_input)
+embedded_sequences_neighbor_program=Dropout(0.2)(embedded_sequences_neighbor_program) #( ,10,100)
+
+attention_np = Dense(100,activation='tanh')(embedded_sequences_neighbor_program) #[None, 10, 100]
+attention_np =Flatten()(Dense(1)(attention_np))#[None, 10]
+attention_weight_np = Activation('softmax')(attention_np)#[None, 10]
+neighbor_program_rep=keras.layers.Dot((1, 1))([embedded_sequences_neighbor_program, attention_weight_np]) #( ,100)
+
+
+
+#节目表示
+all_channel=[title_rep,label_rep,pd_rep,date_rep,neighbor_program_rep] 
+views=concatenate([Lambda(lambda x: K.expand_dims(x,axis=1))(channel) for channel in all_channel],axis=1) #( ,4,100)
+
+attentionv = Dense(100,activation='tanh')(views)
+
+attention_weightv =Lambda(lambda x:K.squeeze(x,axis=-1))(Dense(1)(attentionv))
+attention_weightv =Activation('softmax')(attention_weightv)
+
+programrep=keras.layers.Dot((1, 1))([views, attention_weightv])     #( ,100) 
+programEncoder = Model([title_input,label_input,pd_input,date_input,neighbor_program_input],programrep) 
+
+
+
+
+
+#用户表示
+#MAX_SENTS=30
+browsed_program_title_input = [keras.Input((MAX_BODY_LENGTH,), dtype='int32') for _ in range(MAX_SENTS)]
+browsed_label_input = [keras.Input((MAX_LABEL_LENGTH,), dtype='int32') for _ in range(MAX_SENTS)]
+browsed_pd_input = [keras.Input((1,), dtype='int32') for _ in range(MAX_SENTS)]
+browsed_date_input = [keras.Input((1,), dtype='int32') for _ in range(MAX_SENTS)]
+browsed_neighbor_program_input = [keras.Input((MAX_NEIGHBOR_LENGTH,), dtype='int32') for _ in range(MAX_SENTS)]
+
+
+watched_program = [programEncoder([browsed_program_title_input[_],browsed_label_input[_],browsed_pd_input[_],browsed_date_input[_],browsed_neighbor_program_input[_]]) for _ in range(MAX_SENTS)]
+watched_programs =concatenate([Lambda(lambda x: K.expand_dims(x,axis=1))(news) for news in watched_program],axis=1)    
+#( ,30,100)
+
+#中心节目相邻七个节目卷积表示该中心节目
+watched_programs_cnn = Convolution1D(nb_filter=100, filter_length=3,  padding='same', activation='relu', strides=1)(watched_programs)
+watched_programs_cnn =Dropout(0.2)(watched_programs_cnn)
+
+#LSTM之后注意力
+watched_programrep=GRU(100,return_sequences=True)(watched_programs_cnn) #[None, 30, 100]
+watched_programrep =Dropout(0.2)(watched_programrep)
+
+attentionn = Dense(100,activation='tanh')(watched_programrep) #[None, 30, 100]
+attentionn =Flatten()(Dense(1)(attentionn))#[None, 30]
+attention_weightn = Activation('softmax')(attentionn)#[None, 30]
+user_program_rep=keras.layers.Dot((1, 1))([watched_programrep, attention_weightn]) #( ,100)
+
+
+
+#测试集表示
+candidates_title = [keras.Input((MAX_BODY_LENGTH,), dtype='int32') for _ in range(npratio+1)]
+candidates_label = [keras.Input((MAX_LABEL_LENGTH,), dtype='int32') for _ in range(npratio+1)]
+candidates_pd = [keras.Input((1,), dtype='int32') for _ in range(npratio+1)]
+candidates_date = [keras.Input((1,), dtype='int32') for _ in range(npratio+1)]
+candidates_neighbor_program_id = [keras.Input((MAX_NEIGHBOR_LENGTH,), dtype='int32') for _ in range(npratio+1)]
+
+candidate_vecs = [programEncoder([candidates_title[_],candidates_label[_],candidates_pd[_],candidates_date[_],candidates_neighbor_program_id[_]]) for _ in range(npratio+1)]
+#[None,100]*6
+logits_01 = [keras.layers.dot([user_program_rep, candidate_vec], axes=-1) for candidate_vec in candidate_vecs]
+#[6,1]
+
+
+logits022=keras.layers.Activation(keras.activations.softmax)(keras.layers.concatenate(logits_01))
+#logits033=keras.layers.Activation(keras.activations.softmax)(keras.layers.concatenate(logits_03))
+
+#(None,6)
+
+model = Model(candidates_title+browsed_program_title_input+candidates_label+browsed_label_input+candidates_pd+browsed_pd_input+candidates_date+browsed_date_input+candidates_neighbor_program_id+browsed_neighbor_program_input, logits022)
+#model= keras.Model([candidate_one_title]+[candidate_one_label]+browsed_program_title_input+browsed_label_input, logits)
+#model = Model([candidates_title,browsed_program_title_input,candidates_label,browsed_label_input], logits)
+
+
+#预测数据
+candidate_one_title = keras.Input((MAX_BODY_LENGTH,))
+candidate_one_label = keras.Input((MAX_LABEL_LENGTH,))
+candidate_one_pd= keras.Input((1,))
+candidate_one_date= keras.Input((1,))
+candidate_one_neighbor_program_id =keras.Input((MAX_NEIGHBOR_LENGTH,))
+
+
+candidate_one_vec=programEncoder([candidate_one_title,candidate_one_label,candidate_one_pd,candidate_one_date,candidate_one_neighbor_program_id])
+score01=keras.layers.dot([user_program_rep, candidate_one_vec], axes=-1)
+
+
+
+score=keras.layers.Activation(keras.activations.sigmoid)(score01)
+
+model_test = keras.Model([candidate_one_title]+browsed_program_title_input+[candidate_one_label]+browsed_label_input+[candidate_one_pd]+browsed_pd_input+[candidate_one_date]+browsed_date_input+[candidate_one_neighbor_program_id]+browsed_neighbor_program_input, score)
+
+
+model.compile(loss='binary_crossentropy', optimizer=Adam(lr=0.001), metrics=['acc'])
+
+
+results=[]
+for ep in range(10):
+    print(ep)
+    traingen=generate_batch_data_train(Titles_bufenci,Titles_fenci,Labels_2lei,Pds,Dates,User_Titles_fenci,User_Labels_2lei,User_program_pd,User_program_date,Neighbor_programs_id,User_Neighbor_programs_id,y_label,30)
+    model.fit_generator(traingen, epochs=1,steps_per_epoch=len(y_label)//30) 
+    testgen=generate_batch_data_test(user_test_Titles_fenci,user_test_Labels_2lei,user_test_Pds,user_test_dates,user_test_User_Titles_fenci,user_test_User_Labels_2lei,user_test_User_Pds,user_test_User_dates,Neighbor_test_programs_id,User_Neighbor_test_programs_id,user_test_y_label, 30)
+    click_score = model_test.predict_generator(testgen, steps=len(user_test_y_label)//30,verbose=1)
+    from sklearn.metrics import roc_auc_score
+    all_auc=[]
+    all_mrr=[]
+    all_ndcg=[]
+    all_ndcg2=[]
+    all_hr=[]
+    for index,m in enumerate(all_test_index[:109]):
+        #print(index,m)
+        try:
+            all_auc.append(roc_auc_score(user_test_y_label[m[0]:m[1]],click_score[m[0]:m[1],0]))
+        except ValueError:
+            pass
+        all_mrr.append(mrr_score(user_test_y_label[m[0]:m[1]],click_score[m[0]:m[1],0],k=10))
+        all_ndcg.append(ndcg_score(user_test_y_label[m[0]:m[1]],click_score[m[0]:m[1],0],k=5))
+        all_ndcg2.append(ndcg_score(user_test_y_label[m[0]:m[1]],click_score[m[0]:m[1],0],k=10))
+        all_hr.append(hr_score(user_test_y_label[m[0]:m[1]],click_score[m[0]:m[1],0],k=100))
+    results.append([np.mean(all_auc),np.nanmean(all_mrr),np.mean(all_ndcg),np.mean(all_ndcg2),np.mean(all_hr)])
+    print(np.mean(all_auc),np.nanmean(all_mrr),np.nanmean(all_ndcg),np.nanmean(all_ndcg2),np.nanmean(all_hr))
+
+
+
+
+
+
+
+
+
+
+
+
+
